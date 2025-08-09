@@ -8,16 +8,13 @@ import os
 
 app = Flask(__name__)
 
-# ✅ Allow your deployed frontend domain and localhost
 allowed_origins = [
     "http://localhost:3000",
-    "https://smart-inventory-frontend.vercel.app/"  # change to your real Vercel URL
+    "https://smart-inventory-frontend.vercel.app/"  
 ]
-CORS(
-    app,
-    supports_credentials=True,
-    resources={r"/*": {"origins": allowed_origins}}
-)
+
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
+
 
 # Configurations
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key')

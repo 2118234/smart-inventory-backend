@@ -3,28 +3,34 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from datetime import timedelta
+import os
 
 # Initialize the Flask app
 app = Flask(__name__)
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": "*"}})
+
+# ✅ Allow only your Vercel frontend & localhost for dev
+CORS(
+    app,
+    supports_credentials=True,
+    resources={r"/*": {"origins": [
+        "http://localhost:3000",  # local dev
+        "https://your-vercel-app.vercel.app"  # deployed frontend
+    ]}}
+)
 
 # Configurations
-app.config['SECRET_KEY'] = 'your-secret-key'
-app.config['JWT_SECRET_KEY'] = 'your-jwt-secret-key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///inventory.db'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key')
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'your-jwt-secret-key')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///inventory.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-from datetime import timedelta
-
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
-
 
 # Initialize extensions
 jwt = JWTManager(app)
 db = SQLAlchemy(app)
 
 # -------------------------- MODELS --------------------------
-
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -47,8 +53,6 @@ with app.app_context():
     db.create_all()
 
 # -------------------------- ROUTES --------------------------
-
-# Register route
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -60,13 +64,11 @@ def register():
 
     new_user = User(username=username)
     new_user.set_password(password)
-
     db.session.add(new_user)
     db.session.commit()
 
     return jsonify({"message": f"User {username} registered successfully!"}), 201
 
-# Login route
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -74,18 +76,16 @@ def login():
 
     if user and user.check_password(data['password']):
         access_token = create_access_token(identity=str(user.id))
-        return jsonify(access_token=access_token), 200
+        return jsonify(token=access_token), 200  # ✅ Changed key to "token" for frontend match
     else:
         return jsonify(message="Invalid credentials"), 401
 
-# Protected route
 @app.route('/protected', methods=['GET'])
 @jwt_required()
 def protected():
     current_user_id = get_jwt_identity()
     return jsonify(message=f"Welcome, user {current_user_id}! This is a protected route.")
 
-# Add a product
 @app.route('/products', methods=['POST'])
 @jwt_required()
 def add_product():
@@ -99,7 +99,6 @@ def add_product():
     db.session.commit()
     return jsonify({"message": "Product added successfully!"}), 201
 
-# Get all products
 @app.route('/products', methods=['GET'])
 @jwt_required()
 def get_products():
@@ -110,7 +109,6 @@ def get_products():
     ]
     return jsonify(result), 200
 
-# Update a product
 @app.route('/products/<int:id>', methods=['PUT'])
 @jwt_required()
 def update_product(id):
@@ -122,11 +120,10 @@ def update_product(id):
     product.name = data.get('name', product.name)
     product.quantity = data.get('quantity', product.quantity)
     product.price = data.get('price', product.price)
-
     db.session.commit()
+
     return jsonify({"message": "Product updated successfully!"}), 200
 
-# Delete a product
 @app.route('/products/<int:id>', methods=['DELETE'])
 @jwt_required()
 def delete_product(id):

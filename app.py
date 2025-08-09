@@ -6,17 +6,17 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from datetime import timedelta
 import os
 
-# Initialize the Flask app
 app = Flask(__name__)
 
-# ✅ Allow only your Vercel frontend & localhost for dev
+# ✅ Allow your deployed frontend domain and localhost
+allowed_origins = [
+    "http://localhost:3000",
+    "https://smart-inventory-frontend.vercel.app/"  # change to your real Vercel URL
+]
 CORS(
     app,
     supports_credentials=True,
-    resources={r"/*": {"origins": [
-        "http://localhost:3000",  # local dev
-        "https://your-vercel-app.vercel.app"  # deployed frontend
-    ]}}
+    resources={r"/*": {"origins": allowed_origins}}
 )
 
 # Configurations
@@ -24,9 +24,8 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key')
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'your-jwt-secret-key')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///inventory.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=19)
 
-# Initialize extensions
 jwt = JWTManager(app)
 db = SQLAlchemy(app)
 
@@ -48,7 +47,6 @@ class Product(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     price = db.Column(db.Float, nullable=False)
 
-# Create the database tables (only once at the beginning)
 with app.app_context():
     db.create_all()
 
@@ -76,7 +74,7 @@ def login():
 
     if user and user.check_password(data['password']):
         access_token = create_access_token(identity=str(user.id))
-        return jsonify(token=access_token), 200  # ✅ Changed key to "token" for frontend match
+        return jsonify(token=access_token), 200
     else:
         return jsonify(message="Invalid credentials"), 401
 
@@ -135,6 +133,5 @@ def delete_product(id):
     db.session.commit()
     return jsonify({"message": "Product deleted successfully!"}), 200
 
-# Run the app
 if __name__ == '__main__':
     app.run(debug=True)

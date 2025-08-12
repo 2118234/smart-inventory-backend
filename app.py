@@ -11,7 +11,7 @@ app = Flask(__name__)
 # ✅ Allow your deployed frontend domain and localhost
 allowed_origins = [
     "http://localhost:3000",
-    "https://smart-inventory-frontend.vercel.app/"  # change to your real Vercel URL
+    "https://your-vercel-app.vercel.app"  # change to your real Vercel URL
 ]
 CORS(
     app,
